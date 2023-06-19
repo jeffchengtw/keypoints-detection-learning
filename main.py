@@ -16,7 +16,7 @@ num_keypoints = 5000
 num_epochs = 100
 predict_interval = 10
 
-train_dataset = MyDataset(r'data\mountain')
+train_dataset = MyDataset(r'sample')
 train_loader = DataLoader(train_dataset, batch_size=1)
 
 model_i = Detector(num_keypoints).to(device)
