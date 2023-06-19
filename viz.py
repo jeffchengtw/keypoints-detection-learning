@@ -58,7 +58,6 @@ def display_tensor(input_tensor: torch.Tensor, path: str, filename):
         # 儲存圖片到指定路徑，每張圖片以索引命名
         save_image(image, os.path.join(path, f"{filename}_{i}.png"))
     
- 
 def tensor_to_image(tensor: torch.Tensor):
     """Convert tensor to grayscale image
 
@@ -92,3 +91,12 @@ def save_image(image: np.ndarray, path: str):
     # 儲存圖片到指定路徑
     image = image[0, :, :]
     cv2.imwrite(path, image)
+
+def display_patches(input_patch: torch.Tensor, path: str):
+    b, n, h, w, c = input_patch.size()
+
+    for i in range(n):
+        patch = input_patch[:, i].clone()  # 克隆第 i 個 patch
+    
+        gray = patch[:, 0].unsqueeze(1)  # 取得第 j 個通道
+        display_tensor(gray, path, f'pathes{i}')  # 儲存通道圖像

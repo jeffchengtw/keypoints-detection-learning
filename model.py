@@ -139,8 +139,8 @@ class OrientationConv(nn.Module):
 
     def forward(self, feature_maps):
         orientation = self.orientation_conv(feature_maps)
-        sin = torch.sin(orientation)
-        cos = torch.cos(orientation)
+        sin = orientation[:, 0:1, :, :]  # sin
+        cos = orientation[:, 1:2, :, :]  # cos
         theta = torch.atan2(sin, cos)
         return theta
     
@@ -162,46 +162,53 @@ class Detector(nn.Module):
         score_map = self.scale_variant(features)
         orientation_map = self.orientation_extractor(features)
 
-        return score_map
+        return score_map, orientation_map
 
-class STN(nn.Module):
-    def __init__(self, input_size):
-        super(STN, self).__init__()
-        self.input_size = input_size
+class STNSampler(nn.Module):
+    def __init__(self, patch_size=32):
+        super(STNSampler, self).__init__()
+        self.patch_size = patch_size
 
-        self.localization = nn.Sequential(
-            nn.Conv2d(input_size, 8, kernel_size=7),
-            nn.MaxPool2d(2, stride=2),
-            nn.ReLU(True),
-            nn.Conv2d(8, 10, kernel_size=5),
-            nn.MaxPool2d(2, stride=2),
-            nn.ReLU(True)
-        )
+    def forward(self, p, kps):
+        b, n, _ = kps.size()
+        patches = []
 
-        self.fc_loc = nn.Sequential(
-            nn.Linear(10 * 4 * 4, 32),
-            nn.ReLU(True),
-            nn.Linear(32, 3 * 2)
-        )
+        for i in range(b):
+            img = p[i]  # 取得第 i 張圖片
+            img_patches = []
 
-    def forward(self, x, keypoints):
-        # 提取關鍵點位置
-        keypoints_x = keypoints[:, 0].view(-1, 1, 1)
-        keypoints_y = keypoints[:, 1].view(-1, 1, 1)
+            for j in range(n):
+                kp = kps[i, j]  # 取得第 i 張圖片的第 j 個關鍵點
+                x, y = kp[0], kp[1]
 
-        # 生成仿射矩陣
-        theta = self.fc_loc(self.localization(x).view(-1, 10 * 4 * 4))
-        theta = theta.view(-1, 2, 3)
+                # 計算裁剪區域的左上角和右下角座標
+                left = int(x - self.patch_size // 2)
+                top = int(y - self.patch_size // 2)
+                right = left + self.patch_size
+                bottom = top + self.patch_size
 
-        # 執行可微分的空間轉換
-        grid = F.affine_grid(theta, x.size())
-        cropped_image = F.grid_sample(x, grid)
+                # 裁剪區域的邊界處理
+                pad_left = max(0, -left)
+                pad_top = max(0, -top)
+                pad_right = max(0, right - img.size(-1))
+                pad_bottom = max(0, bottom - img.size(-2))
+                left = max(0, left)
+                top = max(0, top)
+                right = min(right, img.size(-1))
+                bottom = min(bottom, img.size(-2))
 
-        # 根據關鍵點位置裁剪圖像
-        cropped_patches = cropped_image[:, :, keypoints_y, keypoints_x]
+                # 裁剪並進行 padding
+                patch = img[:, top:bottom, left:right]
+                patch = F.pad(patch, (pad_left, pad_right, pad_top, pad_bottom))
 
-        return cropped_patches
+                img_patches.append(patch)
 
+            img_patches = torch.stack(img_patches, dim=0)
+            patches.append(img_patches)
+
+        patches = torch.stack(patches, dim=0)
+        return patches
+    
 class SimpleDesc(nn.Module):
     def __init__(self, input_channels, out_dim=256):
         super(SimpleDesc, self).__init__()
@@ -227,6 +234,6 @@ class SimpleDesc(nn.Module):
 
     
 if __name__ == '__main__':
-    siamese_model = SimpleDesc(input_channels=1).cuda()
-    input_size = (1, 32, 32)
+    siamese_model = Detector().cuda()
+    input_size = (1, 512, 512)
     summary(siamese_model, input_size=input_size)
