@@ -21,13 +21,21 @@ class MyDataset(Dataset):
     def __getitem__(self, index):
         file_path = self.data[index]
         
-        image = np.array(cv2.imread(file_path, cv2.IMREAD_GRAYSCALE))
-        image = cv2.resize(image, (256, 256))
+        image = np.array(cv2.imread(file_path, cv2.IMREAD_UNCHANGED))
+        resized_image = cv2.resize(image, (256, 256))
+        
+        filename, extention = os.path.splitext(file_path)
+        bgr_img = resized_image.copy()
+        gray_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2GRAY)
         
         if self.transform is not None:
             image = self.transform(image)
         
-        output_tensor = torch.from_numpy(image).float()
+        gray_tensor = torch.from_numpy(gray_img).float()
         # Add a new dimension
-        output_tensor = output_tensor.unsqueeze(0)
-        return output_tensor
+        gray_tensor = gray_tensor.unsqueeze(0)
+        return {
+            'filename' : filename,
+            'gray_tensor' : gray_tensor,
+            'bgr_arr' : bgr_img
+        }

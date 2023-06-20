@@ -23,24 +23,29 @@ def extract_keypoints(scale_space_score_map, num_keypoints=50):
         keypoints = torch.stack(keypoints, dim=0).float()
         return keypoints
 
-def draw_keypoints(score_maps, keypoints, dst_path, filename):
+def draw_keypoints(score_maps, keypoints, dst_path, filename, bgr_img=None):
     score = score_maps.clone().cpu()
     image = tensor_to_image(score)
     batch_size, num_keypoints, _,  = keypoints.shape
 
     for i in range(batch_size):
-        image = image[i].squeeze()  # 去除维度为1的维度
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        if bgr_img == None:
+            image = image[i].squeeze()  
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            image = tensor_to_image(bgr_img[i])
+
         for j in range(num_keypoints):
             prediction = keypoints[i, j]
             x = int(prediction[0].item())
             y = int(prediction[1].item())
+        
+            cv2.circle(image, (x, y), 3, (0, 255, 0), -1)  
 
-            cv2.circle(image, (x, y), 3, (0, 255, 0), -1)  # 在图像上绘制关键点
-
-        # 確保目錄存在，如果不存在則創建
-        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+       
+        os.makedirs(dst_path, exist_ok=True)
         cv2.imwrite(dst_path + f'\{filename}_{i}.png', image)
+
 
 def display_tensor(input_tensor: torch.Tensor, path: str, filename):
     """Save tensor to image

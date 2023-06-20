@@ -40,7 +40,7 @@ for epoch in range(num_epochs):
     detector_j.train()
     running_loss = 0.
     for data in train_loader:
-        data = data.to(device)
+        data = data['gray_tensor'].to(device)
         optimizer_detector.zero_grad()
         optimizer_descriptor.zero_grad()
         
