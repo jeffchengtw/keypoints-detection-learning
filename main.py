@@ -14,11 +14,11 @@ from tqdm import tqdm
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # hyper
-num_keypoints = 5000
+num_keypoints = 3000
 num_epochs = 100
 predict_interval = 10
 
-train_dataset = MyDataset(r'dataset')
+train_dataset = MyDataset(r'sample')
 train_loader = DataLoader(train_dataset, batch_size=1)
 
 detector_i = Detector(num_keypoints).to(device)
@@ -49,7 +49,7 @@ for epoch in range(num_epochs):
         # model i forward
         score_map_i, orientation_map_i = detector_i(data)
         kps_i = extract_keypoints(score_map_i, num_keypoints)
-        #draw_keypoints(score_map_i, kps_i, r'visualization\features', filename + f'_kps_i_{epoch}', data_dict['bgr_arr'])
+        draw_keypoints(score_map_i, kps_i, r'visualization\features', filename + f'_kps_i_{epoch}', data_dict['bgr_arr'])
         
         # model j forward
         rotated_data = torch.rot90(data, 1, dims=(2, 3))

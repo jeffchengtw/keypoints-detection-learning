@@ -40,7 +40,7 @@ def draw_keypoints(score_maps, keypoints, dst_path, filename, bgr_img=None):
             x = int(prediction[0].item())
             y = int(prediction[1].item())
         
-            cv2.circle(image, (x, y), 3, (0, 255, 0), -1)  
+            cv2.circle(image, (x, y), 2, (0, 255, 0), -1)  
 
        
         os.makedirs(dst_path, exist_ok=True)
