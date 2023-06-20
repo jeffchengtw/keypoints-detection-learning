@@ -22,7 +22,7 @@ class MyDataset(Dataset):
         file_path = self.data[index]
         
         image = np.array(cv2.imread(file_path, cv2.IMREAD_GRAYSCALE))
-        image = cv2.resize(image, (512, 512))
+        image = cv2.resize(image, (256, 256))
         
         if self.transform is not None:
             image = self.transform(image)

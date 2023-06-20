@@ -9,7 +9,8 @@ def extract_keypoints(scale_space_score_map, num_keypoints=50):
 
         score_map = scale_space_score_map.squeeze(dim=1)
 
-        _, indices = torch.topk(score_map.view(batch_size, -1), k=num_keypoints, dim=1)
+        _, indices = torch.topk(score_map.reshape(batch_size, -1), k=num_keypoints, dim=1)
+
 
         keypoints = []
         for i in range(batch_size):

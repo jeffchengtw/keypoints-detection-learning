@@ -117,7 +117,7 @@ class ScaleInvariant(nn.Module):
             scale_factor = 1 / scale
             feature_map = torch.split(feature_maps, 1, dim=1)[scale_idx]
             resized_feature_map = nn.functional.interpolate(feature_map, scale_factor=scale_factor, mode='bilinear', align_corners=False)
-            display_tensor(resized_feature_map, 'visualization/features', f'resize_features{scale_idx}')
+            #display_tensor(resized_feature_map, 'visualization/features', f'resize_features{scale_idx}')
             response_map = self.convolution_layers[scale_idx](resized_feature_map)
             response_map = self.convolutional_softmax(response_map)
             response_map = nn.functional.interpolate(response_map, size=(height, width), mode='bilinear', align_corners=False)
@@ -158,7 +158,7 @@ class Detector(nn.Module):
 
     def forward(self, x):
         features = self.feature_extractor_(x)
-        display_tensor(features, 'visualization/features', 'features')
+        #display_tensor(features, 'visualization/features', 'features')
         score_map = self.scale_variant(features)
         orientation_map = self.orientation_extractor(features)
 
@@ -174,12 +174,12 @@ class STNSampler(nn.Module):
         patches = []
 
         for i in range(b):
-            img = p[i]  # 取得第 i 張圖片
+            img = p[i:i+1]  # 取得第 i 張圖片，添加一个维度以保留批次信息
             img_patches = []
 
             for j in range(n):
                 kp = kps[i, j]  # 取得第 i 張圖片的第 j 個關鍵點
-                x, y = kp[0], kp[1]
+                x, y = kp[0].item(), kp[1].item()  # 将关键点的坐标转换为整数
 
                 # 計算裁剪區域的左上角和右下角座標
                 left = int(x - self.patch_size // 2)
@@ -197,43 +197,52 @@ class STNSampler(nn.Module):
                 right = min(right, img.size(-1))
                 bottom = min(bottom, img.size(-2))
 
-                # 裁剪並進行 padding
-                patch = img[:, top:bottom, left:right]
+                # 裁剪并进行 padding
+                patch = img[:, :, top:bottom, left:right]
                 patch = F.pad(patch, (pad_left, pad_right, pad_top, pad_bottom))
 
                 img_patches.append(patch)
-
-            img_patches = torch.stack(img_patches, dim=0)
-            patches.append(img_patches)
-
-        patches = torch.stack(patches, dim=0)
-        return patches
+        batch_tensor = torch.cat(img_patches, dim=0)
+        return batch_tensor
     
-class SimpleDesc(nn.Module):
-    def __init__(self, input_channels, out_dim=256):
-        super(SimpleDesc, self).__init__()
-        self.conv1 = nn.Conv2d(input_channels, 64, kernel_size=3, stride=2)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
-        self.bn2 = nn.BatchNorm2d(128)
-        self.conv3 = nn.Conv2d(128, 256, kernel_size=3, stride=2)
-        self.bn3 = nn.BatchNorm2d(256)
-        self.fc1 = nn.Linear(256 * 3 * 3, 512)  # Adjusted input size
-        self.bn4 = nn.BatchNorm1d(512)
-        self.fc2 = nn.Linear(512, out_dim)
+class DescriptorNetwork(nn.Module):
+    def __init__(self, M=128):
+        super(DescriptorNetwork, self).__init__()
+
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, stride=2),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True)
+        )
+
+        self.fc_layers = nn.Sequential(
+            nn.Linear(256 * 3 * 3, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, M)
+        )
+        self.l1 = nn.Linear(256 * 3 * 3, 512)
+        self.b1 = nn.InstanceNorm1d(512)
+        self.r1 = nn.ReLU(inplace=True)
+        self.l2 = nn.Linear(512, M)
 
     def forward(self, x):
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = x.view(x.size(0), -1)  # Flatten the tensor
-        x = F.relu(self.bn4(self.fc1(x)))
-        x = self.fc2(x)
-        descriptors = F.normalize(x, p=2, dim=1)
-        return descriptors
+        x = self.conv_layers(x)
+        x = x.view(x.size(0), -1)  
+        x = self.l1(x)
+        x = self.b1(x)
+        x = self.r1(x)
+        x = self.l2(x)
+        return x
 
     
 if __name__ == '__main__':
-    siamese_model = Detector().cuda()
-    input_size = (1, 512, 512)
+    siamese_model = DescriptorNetwork().cuda()
+    input_size = (3, 32, 32)
     summary(siamese_model, input_size=input_size)
