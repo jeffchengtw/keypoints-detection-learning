@@ -40,7 +40,7 @@ for epoch in range(num_epochs):
     detector_i.train()
     detector_j.train()
     running_loss = 0.
-    for data_dict in train_loader:
+    for data_dict in tqdm(train_loader, desc='Processing', leave=True):
         data = data_dict['gray_tensor'].to(device)
         filename = data_dict['filename'][0]
         optimizer_detector.zero_grad()
