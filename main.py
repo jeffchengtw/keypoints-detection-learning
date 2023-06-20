@@ -8,16 +8,17 @@ from torch.utils.data import DataLoader
 from dataset import MyDataset
 from model import Detector, STNSampler, DescriptorNetwork
 from viz import draw_keypoints, extract_keypoints, display_patches
+from tqdm import tqdm
 
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # hyper
-num_keypoints = 1000
+num_keypoints = 5000
 num_epochs = 100
 predict_interval = 10
 
-train_dataset = MyDataset(r'sample')
+train_dataset = MyDataset(r'dataset')
 train_loader = DataLoader(train_dataset, batch_size=1)
 
 detector_i = Detector(num_keypoints).to(device)
@@ -39,21 +40,22 @@ for epoch in range(num_epochs):
     detector_i.train()
     detector_j.train()
     running_loss = 0.
-    for data in train_loader:
-        data = data['gray_tensor'].to(device)
+    for data_dict in train_loader:
+        data = data_dict['gray_tensor'].to(device)
+        filename = data_dict['filename'][0]
         optimizer_detector.zero_grad()
         optimizer_descriptor.zero_grad()
         
         # model i forward
         score_map_i, orientation_map_i = detector_i(data)
         kps_i = extract_keypoints(score_map_i, num_keypoints)
-        draw_keypoints(score_map_i, kps_i, r'visualization\features', f'kps_i_{epoch}')
+        #draw_keypoints(score_map_i, kps_i, r'visualization\features', filename + f'_kps_i_{epoch}', data_dict['bgr_arr'])
         
         # model j forward
         rotated_data = torch.rot90(data, 1, dims=(2, 3))
         score_map_j, orientation_map_j = detector_j(rotated_data)
         kps_j = extract_keypoints(score_map_j, num_keypoints)
-        draw_keypoints(score_map_j, kps_j, r'visualization\features', f'kps_j_{epoch}')
+        #draw_keypoints(score_map_j, kps_j, r'visualization\features', filename + f'_kps_j_{epoch}')
         reversed_score_map_j = torch.rot90(score_map_j, -1, dims=(2, 3))
 
         # compute image level loss

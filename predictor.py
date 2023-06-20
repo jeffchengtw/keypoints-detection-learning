@@ -1,4 +1,6 @@
 import torch
+import cv2
+import numpy as np
 from torch.utils.data import DataLoader
 from model import Detector, DescriptorNetwork
 from dataset import MyDataset
@@ -12,7 +14,7 @@ ckpt_dir = 'ckpt/best_model.pt'
 num_keypoints = 1000
 
 # create dataloader
-test_dataset = MyDataset(r'sample')
+test_dataset = MyDataset(r'test')
 test_loader = DataLoader(test_dataset, batch_size=1)
 
 # create model
@@ -30,4 +32,17 @@ for data_dict in test_loader:
     # model i forward
     score_map_i, orientation_map_i = detector(data)
     kps_i = extract_keypoints(score_map_i, num_keypoints)
-    draw_keypoints(score_map_i, kps_i, r'visualization/pred', data_dict['filename'], data_dict['bgr_arr'])
+    draw_keypoints(score_map_i, kps_i, r'visualization/pred', data_dict['filename'][0] + '_DLresult', data_dict['bgr_arr'])
+
+    # opencv result
+    bgr_tensor = data_dict['bgr_arr']
+    bgr_array = np.array(bgr_tensor)
+    bgr_array = bgr_array[0]
+    sift = cv2.SIFT_create()
+    keypoints, descriptors = sift.detectAndCompute(bgr_array, None)
+    for kp in keypoints:
+        x, y = int(kp.pt[0]), int(kp.pt[1])
+        radius = 2
+        cv2.circle(bgr_array, (x, y), radius, (0, 0, 255), 2)  
+    cv2.imwrite(r'visualization/pred/'+ data_dict['filename'][0]+ '_CVresult.png', bgr_array)
+

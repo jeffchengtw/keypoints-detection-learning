@@ -22,9 +22,10 @@ class MyDataset(Dataset):
         file_path = self.data[index]
         
         image = np.array(cv2.imread(file_path, cv2.IMREAD_UNCHANGED))
-        resized_image = cv2.resize(image, (256, 256))
+        resized_image = cv2.resize(image, (512, 512))
         
-        filename, extention = os.path.splitext(file_path)
+        file_name = os.path.basename(file_path)
+        filename, extention = os.path.splitext(file_name)
         bgr_img = resized_image.copy()
         gray_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2GRAY)
         
