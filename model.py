@@ -158,7 +158,7 @@ class Detector(nn.Module):
 
     def forward(self, x):
         features = self.feature_extractor_(x)
-        #display_tensor(features, 'visualization/features', 'features')
+        display_tensor(features, 'visualization/features', 'features')
         score_map = self.scale_variant(features)
         orientation_map = self.orientation_extractor(features)
 
